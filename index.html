@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>She Deserves – AI Support Assistant</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f2f6fa;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #0b79ff;
+      color: #fff;
+      padding: 16px;
+      text-align: center;
+      font-size: 1.2em;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: 480px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      height: 80vh;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      background: #0b79ff;
+      color: #fff;
+      padding: 12px 16px;
+      font-size: 1em;
+      font-weight: 500;
+    }
+
+    .chat-window {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      background: #fafafa;
+      scroll-behavior: smooth;
+    }
+
+    .msg {
+      margin: 10px 0;
+      display: flex;
+    }
+
+    .msg.user {
+      justify-content: flex-end;
+    }
+
+    .msg.assistant {
+      justify-content: flex-start;
+    }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 12px;
+      max-width: 80%;
+      word-wrap: break-word;
+      font-size: 0.95em;
+    }
+
+    .user .bubble {
+      background: #d9e9ff;
+      color: #111;
+      border-top-right-radius: 0;
+    }
+
+    .assistant .bubble {
+      background: #f1f1f1;
+      color: #000;
+      border-top-left-radius: 0;
+    }
+
+    .chat-input-area {
+      display: flex;
+      padding: 10px;
+      background: #f8f8f8;
+      border-top: 1px solid #ddd;
+      gap: 8px;
+    }
+
+    .chat-input-area input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1em;
+    }
+
+    .chat-input-area button {
+      background: #0b79ff;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background 0.3s;
+    }
+
+    .chat-input-area button:hover {
+      background: #095ecc;
+    }
+
+    .status {
+      text-align: center;
+      font-size: 0.85em;
+      color: #666;
+      padding: 4px 0 8px 0;
+    }
+
+    footer {
+      text-align: center;
+      font-size: 0.8em;
+      color: #999;
+      padding: 8px;
+    }
+
+    @media (max-width: 600px) {
+      .chat-container {
+        height: 85vh;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>She Deserves</header>
+
+  <main>
+    <div class="chat-container">
+      <div class="chat-header">AI Wellness Assistant</div>
+      <div class="chat-window" id="chat-window"></div>
+      <div class="status" id="chat-status"></div>
+      <div class="chat-input-area">
+        <input id="chat-input" type="text" placeholder="Ask me about period care, hygiene, or emotional health..." />
+        <button id="chat-send">Send</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>&copy; 2025 She Deserves | Powered by FikaConnect AI</footer>
+
+  <script>
+    (function() {
+      const chatWindow = document.getElementById("chat-window");
+      const chatInput = document.getElementById("chat-input");
+      const chatSend = document.getElementById("chat-send");
+      const chatStatus = document.getElementById("chat-status");
+
+      const history = [];
+
+      function escapeHtml(unsafe) {
+        return unsafe
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function appendMessage(role, text) {
+        const msgDiv = document.createElement("div");
+        msgDiv.classList.add("msg", role);
+
+        const bubble = document.createElement("div");
+        bubble.classList.add("bubble");
+        bubble.innerHTML = escapeHtml(text);
+
+        msgDiv.appendChild(bubble);
+        chatWindow.appendChild(msgDiv);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+
+      async function sendMessage(messageText) {
+        if (!messageText.trim()) return;
+
+        appendMessage("user", messageText);
+        history.push({ role: "user", content: messageText });
+
+        chatInput.value = "";
+        chatStatus.textContent = "Thinking...";
+        chatSend.disabled = true;
+        chatInput.disabled = true;
+
+        try {
+          const res = await fetch("https://she-deserves-production.up.railway.app/api/chat", {
+
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: messageText,
+              history: history.slice(-10) // limit to last 10 messages
+            }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            appendMessage("assistant", "⚠️ " + (data?.error || "Server error"));
+            chatStatus.textContent = "Error: " + (data?.error || "Server");
+          } else {
+            const aiText = data.response || "Sorry, I couldn't generate a response.";
+            appendMessage("assistant", aiText);
+            history.push({ role: "assistant", content: aiText });
+            chatStatus.textContent = "";
+          }
+        } catch (err) {
+          console.error(err);
+          appendMessage("assistant", "❌ Network error — server not reachable.");
+          chatStatus.textContent = "Network error";
+        } finally {
+          chatSend.disabled = false;
+          chatInput.disabled = false;
+          chatInput.focus();
+        }
+      }
+
+      chatSend.addEventListener("click", () => sendMessage(chatInput.value));
+      chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendMessage(chatInput.value);
+      });
+
+      // Initial greeting
+      const welcome = "👋 Hi there! I'm your She Deserves AI Assistant. You can talk to me about menstrual health, hygiene tips, emotional care, or related questions.";
+      appendMessage("assistant", welcome);
+      history.push({ role: "assistant", content: welcome });
+    })();
+  </script>
+</body>
+</html>
