@@ -1,3 +1,18 @@
+// Add this at the top of server.js
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// And make sure you have this for Render's health checks
+app.get('/', (req, res) => {
+  res.json({ 
+    message: "She Deserves AI Backend", 
+    status: "running",
+    timestamp: new Date().toISOString()
+  });
+});
 // server.js - Updated version
 import express from "express";
 import cors from "cors";
