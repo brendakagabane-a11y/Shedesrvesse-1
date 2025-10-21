@@ -234,33 +234,33 @@
     </div>
   </main>
 
-  <footer>&copy; 2025 She Deserves | Powered by FikaConnect AI</footer>
-
-  <script>
-  (function() {
+  <footer>&copy; 2025 She Deserves | FikaConnect ai >
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
     const chatWindow = document.getElementById("chat-window");
     const chatInput = document.getElementById("chat-input");
     const chatSend = document.getElementById("chat-send");
     const chatStatus = document.getElementById("chat-status");
 
     const history = [];
-    const API_URL = "https://shedesrvesse-1-1.onrender.com"; // Your Render backend URL
+    // Your Render backend URL - make sure this is correct!
+    const API_BASE_URL = "https://shedesrvesse-1-1.onrender.com";
+    
+    console.log("🚀 Chat app initialized");
+    console.log("📡 Backend URL:", API_BASE_URL);
 
-    function escapeHtml(unsafe) {
-      return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
     }
 
     function appendMessage(role, text) {
       const msgDiv = document.createElement("div");
-      msgDiv.classList.add("msg", role);
+      msgDiv.className = `msg ${role}`;
 
       const bubble = document.createElement("div");
-      bubble.classList.add("bubble");
+      bubble.className = "bubble";
       bubble.innerHTML = escapeHtml(text);
 
       msgDiv.appendChild(bubble);
@@ -268,76 +268,100 @@
       chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
-    function showTypingIndicator() {
-      const typingDiv = document.createElement("div");
-      typingDiv.id = "typing-indicator";
-      typingDiv.classList.add("msg", "assistant");
-      typingDiv.innerHTML = `
-        <div class="bubble">
-          <div class="typing">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
-        </div>
-      `;
-      chatWindow.appendChild(typingDiv);
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
-
-    function hideTypingIndicator() {
-      const typingIndicator = document.getElementById("typing-indicator");
-      if (typingIndicator) {
-        typingIndicator.remove();
+    async function checkBackendHealth() {
+      try {
+        chatStatus.textContent = "Checking server connection...";
+        const response = await fetch(`${API_BASE_URL}/health`, {
+          method: 'GET',
+          timeout: 5000
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log("✅ Backend health check:", data);
+          chatStatus.textContent = "Connected to server";
+          setTimeout(() => chatStatus.textContent = "", 2000);
+          return true;
+        } else {
+          throw new Error(`Health check failed: ${response.status}`);
+        }
+      } catch (error) {
+        console.error("❌ Backend health check failed:", error);
+        chatStatus.textContent = "Server not available - using demo mode";
+        return false;
       }
     }
 
-    async function sendMessage(messageText) {
-      if (!messageText.trim()) return;
+    async function sendMessage() {
+      const messageText = chatInput.value.trim();
+      
+      if (!messageText) {
+        return;
+      }
 
+      // Clear input and add user message
+      chatInput.value = "";
       appendMessage("user", messageText);
       history.push({ role: "user", content: messageText });
 
-      chatInput.value = "";
-      chatStatus.textContent = "Thinking...";
+      // Disable UI while processing
       chatSend.disabled = true;
       chatInput.disabled = true;
-
-      showTypingIndicator();
+      chatStatus.textContent = "Sending...";
 
       try {
-        console.log("Sending request to:", API_URL);
+        console.log("📤 Sending message to backend...");
         
-        const res = await fetch(API_URL, {
+        const response = await fetch(`${API_BASE_URL}/api/chat`, {
           method: "POST",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
             message: messageText,
-            history: history.slice(-8) // Keep last 8 messages for context
+            history: history.slice(-6)
           }),
         });
 
-        const data = await res.json();
-        hideTypingIndicator();
+        console.log("📥 Response status:", response.status);
 
-        if (!res.ok) {
-          console.error("API Error:", data);
-          appendMessage("assistant", "⚠️ " + (data?.error || `Server error (${res.status})`));
-          chatStatus.textContent = "Error occurred";
-        } else {
-          const aiText = data.response || "Sorry, I couldn't generate a response.";
-          appendMessage("assistant", aiText);
-          history.push({ role: "assistant", content: aiText });
-          chatStatus.textContent = "";
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+          throw new Error(errorData.error || `Server error: ${response.status}`);
         }
-      } catch (err) {
-        hideTypingIndicator();
-        console.error("Network error:", err);
-        appendMessage("assistant", "❌ Network error — please check your connection and try again.");
-        chatStatus.textContent = "Network error";
+
+        const data = await response.json();
+        console.log("✅ AI Response received:", data);
+
+        const aiText = data.response || "I received your message but couldn't generate a response.";
+        appendMessage("assistant", aiText);
+        history.push({ role: "assistant", content: aiText });
+        chatStatus.textContent = "";
+
+      } catch (error) {
+        console.error("❌ API Error details:", error);
+        
+        // More specific error messages
+        let errorMessage = "Network error - ";
+        
+        if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+          errorMessage += "Cannot connect to server. Please check: 1) Backend URL, 2) CORS settings, 3) Server status";
+        } else if (error.message.includes('401')) {
+          errorMessage += "Invalid API key on server";
+        } else if (error.message.includes('429')) {
+          errorMessage += "Rate limit exceeded";
+        } else {
+          errorMessage += error.message;
+        }
+        
+        appendMessage("assistant", `❌ ${errorMessage}`);
+        chatStatus.textContent = "Connection failed";
+        
+        // Show backend status in console
+        console.log("🔍 Checking backend status...");
+        checkBackendHealth();
       } finally {
+        // Re-enable UI
         chatSend.disabled = false;
         chatInput.disabled = false;
         chatInput.focus();
@@ -345,52 +369,26 @@
     }
 
     // Event listeners
-    chatSend.addEventListener("click", () => {
-      const message = chatInput.value.trim();
-      if (message) sendMessage(message);
-    });
-
-    chatInput.addEventListener("keydown", (e) => {
+    chatSend.addEventListener("click", sendMessage);
+    
+    chatInput.addEventListener("keypress", function(e) {
       if (e.key === "Enter") {
-        const message = chatInput.value.trim();
-        if (message) sendMessage(message);
+        sendMessage();
       }
     });
 
-    // Add typing animation CSS
-    const style = document.createElement('style');
-    style.textContent = `
-      .typing {
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
-      }
-      .typing span {
-        height: 8px;
-        width: 8px;
-        background: #999;
-        border-radius: 50%;
-        display: inline-block;
-        animation: typing 1.5s infinite ease-in-out;
-      }
-      .typing span:nth-child(1) { animation-delay: 0s; }
-      .typing span:nth-child(2) { animation-delay: 0.2s; }
-      .typing span:nth-child(3) { animation-delay: 0.4s; }
-      @keyframes typing {
-        0%, 60%, 100% { transform: translateY(0); }
-        30% { transform: translateY(-5px); }
-      }
-    `;
-    document.head.appendChild(style);
+    // Initial setup
+    const welcome = "👋 Hi there! I'm your She Deserves AI Assistant. How can I help you with menstrual health, hygiene, or emotional care today?";
+    appendMessage("assistant", welcome);
+    history.push({ role: "assistant", content: welcome });
 
-    // Initial greeting
-    const welcome = "👋 Hi there! I'm your She Deserves AI Assistant. You can talk to me about menstrual health, hygiene tips, emotional care, or related questions. How can I help you today?";
-    setTimeout(() => {
-      appendMessage("assistant", welcome);
-      history.push({ role: "assistant", content: welcome });
-    }, 500);
-
-  })();
-   </script>
+    // Check backend connection on startup
+    checkBackendHealth();
+    
+    // Focus input field
+    chatInput.focus();
+  });
+</script>
+    
 </body>
 </html>                    
