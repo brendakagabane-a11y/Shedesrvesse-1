@@ -237,121 +237,6 @@
   <footer>&copy; 2025 She Deserves | Powered by FikaConnect AI</footer>
 
   <script>
-    (function() {
-      const API_URL = "https://shedesrvesse-1.onrender.com";
-      
-      const chatWindow = document.getElementById("chat-window");
-      const chatInput = document.getElementById("chat-input");
-      const chatSend = document.getElementById("chat-send");
-      const chatStatus = document.getElementById("chat-status");
-      const connectionStatus = document.getElementById("connection-status");
-
-      const history = [];
-      let typingIndicator = null;
-
-      function escapeHtml(unsafe) {
-        return unsafe
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#039;");
-      }
-
-      function appendMessage(role, text, isError = false) {
-        const msgDiv = document.createElement("div");
-        msgDiv.classList.add("msg", role);
-
-        const bubble = document.createElement("div");
-        bubble.classList.add("bubble");
-        if (isError) bubble.classList.add("error");
-        bubble.innerHTML = escapeHtml(text);
-
-        msgDiv.appendChild(bubble);
-        chatWindow.appendChild(msgDiv);
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-      }
-
-      function showTypingIndicator() {
-        if (typingIndicator) return;
-        
-        const msgDiv = document.createElement("div");
-        msgDiv.classList.add("msg", "assistant");
-        msgDiv.id = "typing-indicator";
-
-        const indicator = document.createElement("div");
-        indicator.classList.add("typing-indicator");
-        indicator.innerHTML = "<span></span><span></span><span></span>";
-
-        msgDiv.appendChild(indicator);
-        chatWindow.appendChild(msgDiv);
-        chatWindow.scrollTop = chatWindow.scrollHeight;
-        
-        typingIndicator = msgDiv;
-      }
-
-      function hideTypingIndicator() {
-        if (typingIndicator) {
-          typingIndicator.remove();
-          typingIndicator = null;
-        }
-      }
-
-      function updateConnectionStatus(connected) {
-        if (connected) {
-          connectionStatus.classList.remove("disconnected");
-        } else {
-          connectionStatus.classList.add("disconnected");
-        }
-      }
-
-      async function checkServerHealth() {
-        try {
-          const res = await fetch(`${API_URL}/health`, {
-            method: "GET",
-            signal: AbortSignal.timeout(5000)
-          });
-          const data = await res.json();
-          updateConnectionStatus(res.ok && data.apiKeyConfigured);
-          return res.ok;
-        } catch (err) {
-          console.error("Health check failed:", err);
-          updateConnectionStatus(false);
-          return false;
-        }
-      }
-
-      async function sendMessage(messageText) {
-        if (!messageText.trim()) return;
-
-        const userMessage = messageText.trim();
-        appendMessage("user", userMessage);
-        history.push({ role: "user", content: userMessage });
-
-        chatInput.value = "";
-        chatStatus.textContent = "Thinking...";
-        chatSend.disabled = true;
-        chatInput.disabled = true;
-        
-        showTypingIndicator();
-
-        try {
-          const res = await fetch(`${API_URL}/api/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              message: userMessage,
-              history: history.slice(-10)
-            }),
-            signal: AbortSignal.timeout(30000) // 30 second timeout
-          });
-
-          hideTypingIndicator();
-
-          if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            const errorMsg = data?.error || `Server error (${res.status})`;
- <script>
   (function() {
     const chatWindow = document.getElementById("chat-window");
     const chatInput = document.getElementById("chat-input");
@@ -506,6 +391,6 @@
     }, 500);
 
   })();
-</script>
+   </script>
 </body>
 </html>                    
