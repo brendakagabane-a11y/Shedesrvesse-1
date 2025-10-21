@@ -351,68 +351,161 @@
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
             const errorMsg = data?.error || `Server error (${res.status})`;
-            appendMessage("assistant", `⚠️ ${errorMsg}`, true);
-            chatStatus.textContent = "Error occurred";
-            updateConnectionStatus(false);
-            return;
-          }
+ <script>
+  (function() {
+    const chatWindow = document.getElementById("chat-window");
+    const chatInput = document.getElementById("chat-input");
+    const chatSend = document.getElementById("chat-send");
+    const chatStatus = document.getElementById("chat-status");
 
-          const data = await res.json();
+    const history = [];
+    const API_URL = "https://shedesrvesse-1.onrender.com/api/chat"; // Your Render backend URL
+
+    function escapeHtml(unsafe) {
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function appendMessage(role, text) {
+      const msgDiv = document.createElement("div");
+      msgDiv.classList.add("msg", role);
+
+      const bubble = document.createElement("div");
+      bubble.classList.add("bubble");
+      bubble.innerHTML = escapeHtml(text);
+
+      msgDiv.appendChild(bubble);
+      chatWindow.appendChild(msgDiv);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function showTypingIndicator() {
+      const typingDiv = document.createElement("div");
+      typingDiv.id = "typing-indicator";
+      typingDiv.classList.add("msg", "assistant");
+      typingDiv.innerHTML = `
+        <div class="bubble">
+          <div class="typing">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+      `;
+      chatWindow.appendChild(typingDiv);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function hideTypingIndicator() {
+      const typingIndicator = document.getElementById("typing-indicator");
+      if (typingIndicator) {
+        typingIndicator.remove();
+      }
+    }
+
+    async function sendMessage(messageText) {
+      if (!messageText.trim()) return;
+
+      appendMessage("user", messageText);
+      history.push({ role: "user", content: messageText });
+
+      chatInput.value = "";
+      chatStatus.textContent = "Thinking...";
+      chatSend.disabled = true;
+      chatInput.disabled = true;
+
+      showTypingIndicator();
+
+      try {
+        console.log("Sending request to:", API_URL);
+        
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: messageText,
+            history: history.slice(-8) // Keep last 8 messages for context
+          }),
+        });
+
+        const data = await res.json();
+        hideTypingIndicator();
+
+        if (!res.ok) {
+          console.error("API Error:", data);
+          appendMessage("assistant", "⚠️ " + (data?.error || `Server error (${res.status})`));
+          chatStatus.textContent = "Error occurred";
+        } else {
           const aiText = data.response || "Sorry, I couldn't generate a response.";
-          
           appendMessage("assistant", aiText);
           history.push({ role: "assistant", content: aiText });
           chatStatus.textContent = "";
-          updateConnectionStatus(true);
-
-        } catch (err) {
-          console.error("Request failed:", err);
-          hideTypingIndicator();
-          
-          let errorMessage;
-          if (err.name === 'TimeoutError') {
-            errorMessage = "⏱️ Request timed out. The server might be slow or sleeping. Please try again.";
-          } else if (err.name === 'TypeError' && err.message.includes('fetch')) {
-            errorMessage = "🔌 Cannot connect to server. Please check if the backend is running.";
-          } else {
-            errorMessage = "❌ Network error – server not reachable. The server might be sleeping (Render free tier). Please wait 30 seconds and try again.";
-          }
-          
-          appendMessage("assistant", errorMessage, true);
-          chatStatus.textContent = "Connection error";
-          updateConnectionStatus(false);
-        } finally {
-          chatSend.disabled = false;
-          chatInput.disabled = false;
-          chatInput.focus();
         }
+      } catch (err) {
+        hideTypingIndicator();
+        console.error("Network error:", err);
+        appendMessage("assistant", "❌ Network error — please check your connection and try again.");
+        chatStatus.textContent = "Network error";
+      } finally {
+        chatSend.disabled = false;
+        chatInput.disabled = false;
+        chatInput.focus();
       }
+    }
 
-      chatSend.addEventListener("click", () => sendMessage(chatInput.value));
-      chatInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          sendMessage(chatInput.value);
-        }
-      });
+    // Event listeners
+    chatSend.addEventListener("click", () => {
+      const message = chatInput.value.trim();
+      if (message) sendMessage(message);
+    });
 
-      // Initial greeting
-      const welcome = "👋 Hi there! I'm your She Deserves AI Assistant. You can talk to me about menstrual health, hygiene tips, emotional care, or related questions.";
+    chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const message = chatInput.value.trim();
+        if (message) sendMessage(message);
+      }
+    });
+
+    // Add typing animation CSS
+    const style = document.createElement('style');
+    style.textContent = `
+      .typing {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+      }
+      .typing span {
+        height: 8px;
+        width: 8px;
+        background: #999;
+        border-radius: 50%;
+        display: inline-block;
+        animation: typing 1.5s infinite ease-in-out;
+      }
+      .typing span:nth-child(1) { animation-delay: 0s; }
+      .typing span:nth-child(2) { animation-delay: 0.2s; }
+      .typing span:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes typing {
+        0%, 60%, 100% { transform: translateY(0); }
+        30% { transform: translateY(-5px); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Initial greeting
+    const welcome = "👋 Hi there! I'm your She Deserves AI Assistant. You can talk to me about menstrual health, hygiene tips, emotional care, or related questions. How can I help you today?";
+    setTimeout(() => {
       appendMessage("assistant", welcome);
       history.push({ role: "assistant", content: welcome });
+    }, 500);
 
-      // Check server health on load
-      checkServerHealth().then(healthy => {
-        if (!healthy) {
-          chatStatus.textContent = "⚠️ Server unavailable - it may be sleeping";
-          appendMessage("assistant", "⚠️ The server is currently unavailable (it may be sleeping on Render's free tier). Please wait 30-60 seconds and try sending a message to wake it up.", true);
-        }
-      });
-
-      // Periodic health check (every 2 minutes)
-      setInterval(checkServerHealth, 120000);
-    })();
-  </script>
-
+  })();
+</script>
 </body>
 </html>                    
