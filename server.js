@@ -1,40 +1,147 @@
-// server.js
-// She Deserves AI Backend (optimized for Render deployment)
-
+// server.js - Updated version
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
 
-// CORS configuration - allow your GitHub Pages domain
+// Enhanced CORS configuration
 app.use(cors({
-  origin: [
-    'https://brendakagabane-a11y.github.io',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000'
-  ],
-  methods: ['GET', 'POST'],
+  origin: ['http://localhost:3000', 'https://your-frontend-url.vercel.app'],
   credentials: true
 }));
 
 app.use(express.json());
 
-// Verify API key is present
+// Validate OpenAI API key on startup
 if (!process.env.OPENAI_API_KEY) {
-  console.error("❌ ERROR: OPENAI_API_KEY is not set!");
-  console.log("Please add it in your Render dashboard under Environment variables");
+  console.error("❌ OPENAI_API_KEY is missing from environment variables");
+  process.exit(1);
 }
 
-// Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const PORT = process.env.PORT || 3001;
+
+const SYSTEM_PROMPT = `
+You are "She Deserves AI", a compassionate and knowledgeable virtual assistant
+dedicated to guiding girls and women through menstrual health, hygiene, and emotional wellbeing.
+Always respond kindly, clearly, and in easy-to-understand language.
+Avoid giving any medical prescriptions. Encourage consulting a doctor if serious symptoms arise.
+Keep responses friendly and informative.
+`;
+
+// Enhanced health check
+app.get("/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    message: "She Deserves API is running",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Test OpenAI connection
+app.get("/api/test", async (req, res) => {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: "Say 'Hello from She Deserves AI!'" }],
+      max_tokens: 50,
+    });
+    
+    res.json({ 
+      success: true, 
+      message: "OpenAI connection successful",
+      response: completion.choices[0]?.message?.content 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Main chat endpoint with enhanced error handling
+app.post("/api/chat", async (req, res) => {
+  try {
+    const { message, history } = req.body;
+
+    console.log("📨 Received message:", message);
+
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    const trimmedHistory = Array.isArray(history) ? history.slice(-10) : [];
+
+    const messages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...trimmedHistory,
+      { role: "user", content: message.trim() },
+    ];
+
+    console.log("🤖 Sending to OpenAI...");
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages,
+      max_tokens: 350,
+      temperature: 0.7,
+    });
+
+    const aiResponse = completion.choices[0]?.message?.content?.trim() || "I'm sorry, I couldn't generate a response.";
+
+    console.log("✅ Response generated:", aiResponse.substring(0, 100) + "...");
+
+    res.json({ 
+      response: aiResponse,
+      usage: completion.usage
+    });
+
+  } catch (error) {
+    console.error("❌ OpenAI Error:", error);
+    
+    let statusCode = 500;
+    let errorMessage = "Something went wrong. Please try again.";
+
+    if (error.code === 'invalid_api_key') {
+      statusCode = 401;
+      errorMessage = "Invalid API key configuration";
+    } else if (error.status === 429) {
+      statusCode = 429;
+      errorMessage = "Rate limit reached. Please try again later.";
+    } else if (error.code === 'insufficient_quota') {
+      statusCode = 402;
+      errorMessage = "API quota exceeded. Please check your OpenAI account.";
+    }
+
+    res.status(statusCode).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Root endpoint
+app.get("/", (req, res) => {
+  res.json({ 
+    message: "She Deserves AI API", 
+    version: "1.0.0",
+    endpoints: ["GET /health", "GET /api/test", "POST /api/chat"]
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 She Deserves AI server running on port ${PORT}`);
+  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔗 API test: http://localhost:${PORT}/api/test`);
+});
 const PORT = process.env.PORT || 3001;
 
 // Define system prompt
