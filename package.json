@@ -1,8 +1,6 @@
 {
   "name": "she-deserves-ai",
   "version": "1.0.0",
-  "description": "AI Wellness Assistant for She Deserves - powered by FikaConnect",
-  "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
@@ -13,5 +11,8 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "openai": "^4.66.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
