@@ -1,182 +1,278 @@
-// server.js - DEBUG VERSION
+// server.js - Google Gemini API (FREE VERSION)
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import OpenAI from "openai";
 
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// CORS configuration
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
-// Debug: Check if API key is loaded
-console.log('🔑 Checking OpenAI API key...');
-console.log('Key exists:', !!process.env.OPENAI_API_KEY);
-console.log('Key starts with:', process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.substring(0, 10) + '...' : 'No key');
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
+// Get API key from environment
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const PORT = process.env.PORT || 3001;
 
-const SYSTEM_PROMPT = `You are "She Deserves AI", a compassionate assistant for menstrual health and wellness.`;
+console.log('🔑 Gemini API Key Check:');
+console.log('   Exists:', !!GEMINI_API_KEY);
+console.log('   Preview:', GEMINI_API_KEY ? GEMINI_API_KEY.substring(0, 10) + '...' : 'NOT SET');
+
+if (!GEMINI_API_KEY) {
+  console.error('❌ CRITICAL: GEMINI_API_KEY not found!');
+  console.error('   Get your free key at: https://makersuite.google.com/app/apikey');
+}
+
+const SYSTEM_PROMPT = `You are "She Deserves AI", a compassionate and knowledgeable assistant specializing in menstrual health, hygiene, and emotional wellness.
+
+Provide supportive, medically accurate information about:
+- Menstrual health and period care
+- Hygiene practices and products
+- Emotional well-being during menstruation
+- Common symptoms and when to seek medical help
+- Nutrition and lifestyle tips for menstrual health
+
+Always be empathetic, non-judgmental, and encouraging. Keep responses concise (2-3 paragraphs max) and actionable.`;
 
 // Root endpoint
 app.get("/", (req, res) => {
   res.json({ 
-    message: "She Deserves AI Backend",
+    message: "She Deserves AI Backend (Gemini)",
     status: "running",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    apiConfigured: !!GEMINI_API_KEY
   });
 });
 
-// Health check with API key status
+// Health check
 app.get("/health", (req, res) => {
   res.json({ 
     status: "ok", 
     message: "Server is healthy",
-    apiKeyConfigured: !!process.env.OPENAI_API_KEY,
-    apiKeyPreview: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.substring(0, 7) + '...' : 'Not set'
+    apiKeyConfigured: !!GEMINI_API_KEY,
+    aiProvider: "Google Gemini",
+    timestamp: new Date().toISOString()
   });
 });
 
-// Detailed test endpoint
+// Test endpoint
 app.get("/api/test", async (req, res) => {
-  console.log('🧪 Testing OpenAI connection...');
+  console.log('🧪 Testing Gemini API...');
+  
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({
+      success: false,
+      error: "Gemini API key not configured",
+      hint: "Get free key at: https://makersuite.google.com/app/apikey"
+    });
+  }
   
   try {
-    // Test with a very simple request
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ 
-        role: "user", 
-        content: "Just say 'Test successful' and nothing else." 
-      }],
-      max_tokens: 5,
-      temperature: 0.1,
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: "Say only: Connection successful" }]
+          }]
+        })
+      }
+    );
 
-    const response = completion.choices[0]?.message?.content;
-    console.log('✅ OpenAI test SUCCESS:', response);
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+    
+    console.log('✅ Gemini test SUCCESS:', text);
 
     res.json({ 
       success: true, 
-      message: "OpenAI connection successful",
-      response: response,
-      model: "gpt-4o-mini"
+      message: "Gemini API working perfectly!",
+      response: text,
+      model: "gemini-1.5-flash"
     });
 
   } catch (error) {
-    console.log('❌ OpenAI test FAILED:');
-    console.log('Error name:', error.name);
-    console.log('Error code:', error.code);
-    console.log('Error status:', error.status);
-    console.log('Full error:', error);
+    console.error('❌ Gemini test FAILED:', error.message);
 
-    let userMessage = "OpenAI API error";
-    let statusCode = 500;
-
-    if (error.status === 401) {
-      userMessage = "Invalid OpenAI API key";
-      statusCode = 401;
-    } else if (error.status === 429) {
-      userMessage = "Rate limit exceeded - but usage shows zero?";
-      statusCode = 429;
-    } else if (error.code === 'invalid_api_key') {
-      userMessage = "API key is invalid or malformed";
-      statusCode = 401;
-    } else if (error.message.includes('API key')) {
-      userMessage = "API key issue: " + error.message;
-      statusCode = 401;
-    }
-
-    res.status(statusCode).json({ 
+    res.status(500).json({ 
       success: false,
-      error: userMessage,
-      details: error.message,
-      errorCode: error.code,
-      errorStatus: error.status
+      error: error.message,
+      hint: "Check your API key at https://makersuite.google.com/app/apikey"
     });
   }
 });
 
-// Chat endpoint with detailed error handling
+// Main chat endpoint
 app.post("/api/chat", async (req, res) => {
   console.log('💬 Chat request received');
+  
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({ 
+      error: "API key not configured",
+      hint: "Get free key at: https://makersuite.google.com/app/apikey"
+    });
+  }
   
   try {
     const { message, history = [] } = req.body;
 
-    if (!message || message.trim().length === 0) {
-      return res.status(400).json({ error: "Message is required" });
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return res.status(400).json({ error: "Valid message is required" });
     }
 
-    console.log('Processing message:', message.substring(0, 50) + '...');
+    console.log('📝 Processing message...');
 
-    const messages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...history.slice(-6),
-      { role: "user", content: message.trim() },
-    ];
-
-    console.log('Sending to OpenAI...');
+    // Build conversation context for Gemini
+    // Gemini uses a different format than OpenAI
+    const contents = [];
     
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-      max_tokens: 200, // Reduced for testing
-      temperature: 0.7,
+    // Add system prompt as first user message
+    contents.push({
+      role: "user",
+      parts: [{ text: SYSTEM_PROMPT }]
+    });
+    contents.push({
+      role: "model",
+      parts: [{ text: "I understand. I'll be a compassionate wellness assistant focused on menstrual health." }]
     });
 
-    const aiResponse = completion.choices[0]?.message?.content || "I'm here to help!";
+    // Add conversation history
+    history.slice(-6).forEach(msg => {
+      if (msg.role && msg.content) {
+        contents.push({
+          role: msg.role === "user" ? "user" : "model",
+          parts: [{ text: msg.content }]
+        });
+      }
+    });
+
+    // Add current message
+    contents.push({
+      role: "user",
+      parts: [{ text: message.trim() }]
+    });
+
+    console.log('📤 Sending to Gemini...');
+    
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: contents,
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 500,
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_ONLY_HIGH"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_ONLY_HIGH"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_ONLY_HIGH"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_ONLY_HIGH"
+            }
+          ]
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    // Extract response text
+    const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!aiResponse) {
+      throw new Error('Empty response from Gemini');
+    }
+
     console.log('✅ Response generated');
 
     res.json({ 
       response: aiResponse,
-      usage: completion.usage
+      model: "gemini-1.5-flash",
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('❌ Chat error details:');
-    console.error('Error name:', error.name);
-    console.error('Error code:', error.code);
-    console.error('Error status:', error.status);
-    console.error('Error message:', error.message);
+    console.error('❌ Chat error:', error.message);
     
     let statusCode = 500;
-    let errorMessage = "Something went wrong";
+    let errorMessage = "Unable to process your request";
 
-    if (error.status === 401) {
+    if (error.message.includes('API_KEY_INVALID')) {
       statusCode = 401;
-      errorMessage = "Invalid API key configuration";
-    } else if (error.status === 429) {
+      errorMessage = "Invalid API key";
+    } else if (error.message.includes('RATE_LIMIT')) {
       statusCode = 429;
       errorMessage = "Rate limit exceeded. Please try again in a moment.";
-    } else if (error.code === 'invalid_api_key') {
-      statusCode = 401;
-      errorMessage = "The API key is invalid or has been revoked";
+    } else if (error.message.includes('quota')) {
+      statusCode = 429;
+      errorMessage = "Daily quota exceeded";
     } else {
-      errorMessage = error.message || "Unknown error occurred";
+      errorMessage = error.message;
     }
 
     res.status(statusCode).json({ 
       error: errorMessage,
-      errorCode: error.code,
-      errorStatus: error.status
+      timestamp: new Date().toISOString()
     });
   }
 });
 
-// Favicon handler
-app.get('/favicon.ico', (req, res) => {
-  res.status(204).end();
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ 
+    error: "Endpoint not found",
+    availableEndpoints: ['GET /', 'GET /health', 'GET /api/test', 'POST /api/chat']
+  });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 Health check: https://shedesrvesse-1-3.onrender.com/health`);
-  console.log(`📍 API test: https://shedesrvesse-1-3.onrender.com/api/test`);
+  console.log(`
+🚀 Server Started - Google Gemini Version!
+   Port: ${PORT}
+   Time: ${new Date().toISOString()}
+   API Key: ${GEMINI_API_KEY ? '✅ Configured' : '❌ MISSING'}
+   Provider: Google Gemini (FREE)
+   
+📍 Get your FREE API key:
+   https://makersuite.google.com/app/apikey
+   
+📍 Endpoints:
+   https://shedesrvesse-1-3.onrender.com/health
+   https://shedesrvesse-1-3.onrender.com/api/test
+   https://shedesrvesse-1-3.onrender.com/api/chat
+  `);
 });
