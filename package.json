@@ -1,8 +1,8 @@
 {
-  "name": "she-deserves-ai-gemini",
+  "name": "she-deserves-ai-huggingface",
   "version": "2.0.0",
   "type": "module",
-  "description": "She Deserves AI Assistant - Menstrual Health & Wellness Support using Google Gemini",
+  "description": "She Deserves AI Assistant using Hugging Face - 100% Free AI",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -13,8 +13,9 @@
     "chatbot",
     "health",
     "wellness",
-    "gemini",
-    "menstrual-health"
+    "huggingface",
+    "menstrual-health",
+    "free-ai"
   ],
   "author": "Brenda Kagabane",
   "license": "MIT",
