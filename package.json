@@ -2,34 +2,14 @@
   "name": "she-deserves-ai-huggingface",
   "version": "2.0.0",
   "type": "module",
-  "description": "She Deserves AI Assistant using Hugging Face - 100% Free AI",
-  "main": "server.js",
+  "main": "test-server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node test-server.js",
+    "dev": "nodemon test-server.js",
+    "debug": "node test-server.js"
   },
-  "keywords": [
-    "ai",
-    "chatbot",
-    "health",
-    "wellness",
-    "huggingface",
-    "menstrual-health",
-    "free-ai"
-  ],
-  "author": "Brenda Kagabane",
-  "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "node-fetch": "^3.3.2"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
+    "express": "^4.19.2"
   }
 }
